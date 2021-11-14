@@ -1,0 +1,35 @@
+menu "Matrix Keyboard"
+
+config OUTPUT_PIN_1
+    int "output pin 1 for matrix keyboard"
+    default 13
+
+config OUTPUT_PIN_2
+    int "output pin 2 for matrix keyboard"
+    default 12
+
+config OUTPUT_PIN_3
+    int "output pin 3 for matrix keyboard"
+    default 14
+
+config OUTPUT_PIN_4
+    int "output pin 4 for matrix keyboard"
+    default 27
+
+config INPUT_PIN_1
+    int "input pin 1 for matrix keyboard"
+    default 26
+
+config INPUT_PIN_2
+    int "input pin 2 for matrix keyboard"
+    default 25
+
+config INPUT_PIN_3
+    int "input pin 3 for matrix keyboard"
+    default 33
+
+config INPUT_PIN_4
+    int "input pin 4 for matrix keyboard"
+    default 32
+
+endmenu
