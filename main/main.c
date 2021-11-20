@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 
 #include "matrix_keyboard.h"
 #include "main.h"
@@ -14,6 +15,20 @@
 #include "ssd1306_draw.h"
 #include "ssd1306_font.h"
 #include "ssd1306_default_if.h"
+
+// musical buzzer
+#define LEDC_LS_TIMER          LEDC_TIMER_1
+#define LEDC_LS_MODE           LEDC_LOW_SPEED_MODE
+
+enum Note{
+    Do = 0, Re, Mi, Fa, Sol, La, Si
+};
+int note_frequency[7]={
+    262, 294, 330, 349, 392, 440, 494
+};
+
+#define music_sequence_length 15
+int music_sequence[music_sequence_length] = {Do, Do, Sol, Sol, La, La, Sol, Fa, Fa, Mi, Mi, Re, Re, Do, Do};
 
 
 // buzzer
@@ -51,9 +66,49 @@ int timer_second = 0;
 
 // alarm mode
 bool is_alarm_set = false;
-int alarm_hour = 0;
-int alarm_minute = 0;
-int alarm_second = 0;
+int alarm_hour = -1;
+int alarm_minute = -1;
+int alarm_second = -1;
+
+void musical_buzzer_init(){
+    ledc_timer_config_t ledc_timer = {
+        .duty_resolution = LEDC_TIMER_13_BIT, // resolution of PWM duty
+        .freq_hz = 5000,                      // frequency of PWM signal
+        .speed_mode = LEDC_LS_MODE,           // timer mode
+        .timer_num = LEDC_LS_TIMER,            // timer index
+        .clk_cfg = LEDC_AUTO_CLK,              // Auto select the source clock
+    };
+    // Set configuration of timer0 for high speed channels
+    ledc_timer_config(&ledc_timer);
+
+    ledc_channel_config_t ledc_channel = {
+        .channel    = LEDC_CHANNEL_0,
+        .duty       = 0,
+        .gpio_num   = (2),
+        .speed_mode = LEDC_LS_MODE,
+        .hpoint     = 0,
+        .timer_sel  = LEDC_LS_TIMER
+    };
+    // Set LED Controller with previously prepared configuration
+    ledc_channel_config(&ledc_channel);
+
+    return;
+}
+
+void musical_buzzer_play_music(){
+    ledc_set_duty(LEDC_LS_MODE,LEDC_CHANNEL_0,5000);
+    ledc_update_duty(LEDC_LS_MODE,LEDC_CHANNEL_0);
+
+    for(int i = 0;i < music_sequence_length;i++){
+        ledc_set_freq(LEDC_LS_MODE,LEDC_LS_TIMER,note_frequency[music_sequence[i]]);
+        printf("freq:%d\tduty:%d\n",ledc_get_freq(LEDC_LS_MODE,LEDC_LS_TIMER),ledc_get_duty(LEDC_LS_MODE,LEDC_CHANNEL_0));
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
+
+    ledc_set_duty(LEDC_LS_MODE,LEDC_CHANNEL_0,0);
+    ledc_update_duty(LEDC_LS_MODE,LEDC_CHANNEL_0);
+    return;
+}
 
 void buzzer_init(){
     unsigned long long buzzer_pin_sel = 0;
@@ -151,6 +206,13 @@ void normal_mode()
         normal_hour = 0;
     }
 
+    // clear
+    if(normal_minute == 24 && normal_second == 0){
+        normal_hour = 0;
+        normal_minute = 0;
+        normal_second = 0;
+    }
+
     if (!is_setting_time)
     {
         clock_hour = normal_hour;
@@ -171,6 +233,7 @@ void normal_mode()
         printf("Sound the alarm!\n");
         vTaskDelay(BUZZER_SOUND_TIME / portTICK_PERIOD_MS);
         buzzer_set_state(false);
+        musical_buzzer_play_music();
     }
 
     char title[30];
@@ -248,6 +311,7 @@ void timer_mode()
         printf("Sound the alarm!\n");
         vTaskDelay(BUZZER_SOUND_TIME / portTICK_PERIOD_MS);
         buzzer_set_state(false);
+        musical_buzzer_play_music();
 
         is_timer_set = false;
     }
@@ -272,6 +336,7 @@ void app_main(void)
     InitSSD1306(&I2CDisplay, &Font_droid_sans_fallback_24x28);
     matrix_keyboard_init(&mk);
     buzzer_init();
+    musical_buzzer_init();
 
     printf("Done!\n");
 
